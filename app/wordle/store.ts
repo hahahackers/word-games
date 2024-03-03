@@ -1,20 +1,22 @@
-import { makeAutoObservable, reaction } from "mobx";
+import { makeAutoObservable, set } from 'mobx';
+import _ from 'lodash';
+import { words } from '@/app/wordle/data/words';
+import { ALPHABET } from '@/app/common/constants';
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+interface TableEntry {
+  letter: string;
+  status: string;
+}
 
 export class WordleStore {
-  word = "HELLO";
-  guesses: string[] = ["WORLD", "BLOCK", "LLHHO", "LOOLO", "OOOOO", "ELLOH"];
+  word = _.sample(words)!;
+  guesses: string[] = [];
   MAX_GUESSES = 6;
 
   get charMap() {
-    const map = new Map<string, number[]>();
+    const map = new Map<string, number[]>(_.map(ALPHABET, (letter) => [letter, []]));
 
-    for (let letter of ALPHABET) {
-      map.set(letter, []);
-    }
-
-    this.word.split("").forEach((letter, index) => {
+    _.each(this.word, (letter, index) => {
       map.set(letter, map.get(letter)!.concat(index));
     });
 
@@ -22,33 +24,30 @@ export class WordleStore {
   }
 
   get table() {
-    const table = Array.from({ length: this.MAX_GUESSES });
+    const table: TableEntry[][] = Array.from({ length: this.MAX_GUESSES });
 
-    this.guesses.forEach((guess, guessIndex) => {
-      const row: { letter: string; status: string }[] = [];
+    _.each(this.guesses, (guess, guessIndex) => {
+      const row: TableEntry[] = [];
 
-      guess.split("").forEach((letter, letterIndex) => {
-        let status = "none";
-        if (this.word[letterIndex] === letter) {
-          status = "correct";
+      _.each(guess, (letter, letterIndex) => {
+        let status = 'none';
+
+        if (this.word.at(letterIndex) === letter) {
+          status = 'correct';
         }
 
-        row[letterIndex] = { letter, status };
+        _.set(row, letterIndex, { letter, status });
       });
-      table[guessIndex] = row;
 
-      guess.split("").forEach((letter, letterIndex) => {
-        if (
-          this.charMap.get(letter)?.length &&
-          row[letterIndex].status !== "correct"
-        ) {
-          const lettersInWordCount = this.charMap.get(letter)?.length || 0;
-          const highlightedLettersInRowCount = row.filter(
-            (el) => el.letter === letter && el.status !== "none"
-          ).length;
+      _.set(table, guessIndex, row);
+
+      _.each(guess, (letter, letterIndex) => {
+        if (_.size(this.charMap.get(letter)) && _.get(row, [letterIndex, 'status']) !== 'correct') {
+          const lettersInWordCount = _.size(this.charMap.get(letter));
+          const highlightedLettersInRowCount = _.size(_.filter(row, (e) => e.letter === letter && e.status !== 'none'));
 
           if (highlightedLettersInRowCount < lettersInWordCount) {
-            row[letterIndex] = { letter, status: "incorrect" };
+            _.set(row, letterIndex, { letter, status: 'incorrect' });
           }
         }
       });
@@ -66,7 +65,12 @@ export class WordleStore {
   }
 
   get isLose() {
-    return this.guesses.length === this.MAX_GUESSES;
+    return !this.isWin && this.guesses.length === this.MAX_GUESSES;
+  }
+
+  reset() {
+    this.word = _.sample(words)!;
+    this.guesses = [];
   }
 
   constructor() {
@@ -74,4 +78,4 @@ export class WordleStore {
   }
 }
 
-export const wordleStore = new WordleStore();
+export const wordle = new WordleStore();
