@@ -1,1 +1,4 @@
 # Word games
+
+- Hangman
+- Wordle
